@@ -20,7 +20,7 @@ const ICON_MAP = Object.freeze({
   BTN_STATUS:       '<:stats_icon_white:1512125040093691998>',
   BTN_STATS:        '<:stats:1512130788554969179>',
   BTN_CLAIM:        '<:Gift:1512125159572766791>',
-  BTN_CLOSE:        '<:Lock:1512125307379781843>',
+  BTN_CLOSE:        '<:Lock:1520398722079527073>',
   BTN_TRANSCRIPT:   '<:better_scroll:1512127154710642818>',
   BTN_REOPEN:       '<:Unlock:1512127379261231194>',
   BTN_REFRESH:      '<:Refresh:1512128096923422770>',
