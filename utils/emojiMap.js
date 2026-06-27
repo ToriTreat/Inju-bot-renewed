@@ -1,0 +1,41 @@
+'use strict';
+
+const CUSTOM = {
+  COOKIE:        '<:cookie:1493307158610051213>',
+  ROBUX:         '<:robux:1493306984190050394>',
+  RICH:          '<:crown~1:1493307158610051213>',
+  SHIELD:        '<:shield:1493306851612164206>',
+  VERIFIED:      '<:greentick:1493306851612164206>',
+  ONLINE:        '<:online:1493306984190050394>',
+  CHECK:         '<:greentick:1493306851612164206>',
+  CROSS:         '<:redcross:1493306890283778202>',
+  SPIN:          '<:spin:1493306984190050394>',
+  CROWN:         '<:crown~1:1493307158610051213>',
+  FIRE:          '<:spin:1493306984190050394>',
+  STAR:          '<:star:1493307158610051213>',
+};
+
+const EMOJI = {
+  COOKIE:        CUSTOM.CHECK,
+  COOKIE_REAL:   CUSTOM.CHECK,
+  COOKIE_HEART:  CUSTOM.CHECK,
+  PINGU_COOKIE:  CUSTOM.CHECK,
+  ROBUX:         CUSTOM.ROBUX,
+  ROBUX_ALT:     CUSTOM.ROBUX,
+  ROBUX_PURPLE:  CUSTOM.ROBUX,
+  RICH:          CUSTOM.CROWN,
+  SHIELD:        CUSTOM.SHIELD,
+  VERIFIED:      CUSTOM.CHECK,
+  ONLINE:        CUSTOM.ONLINE,
+  INGAME:        CUSTOM.ONLINE,
+  ROBLOX:        CUSTOM.ROBUX,
+  PLUS_ICON:     CUSTOM.ONLINE,
+  CHECK:         CUSTOM.CHECK,
+  CROSS:         CUSTOM.CROSS,
+  FIRE:          CUSTOM.FIRE,
+  CROWN:         CUSTOM.CROWN,
+  SPIN:          CUSTOM.SPIN,
+  STAR:          CUSTOM.STAR,
+};
+
+module.exports = { EMOJI, CUSTOM };
