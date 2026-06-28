@@ -33,15 +33,18 @@ function buildVouchEmbed(targetUser, vouches, page = 0, client) {
   });
 }
 
-function buildVouchButtons(page, totalPages, targetId) {
+// requesterId is embedded in the customId so the interaction handler
+// can verify only that person can flip pages.
+function buildVouchButtons(page, totalPages, targetId, requesterId = null) {
+  const rid = requesterId ?? 'any';
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`vouch_prev_${page}_${targetId}`)
+      .setCustomId(`vouch_prev_${page}_${targetId}_${rid}`)
       .setLabel('◀  Prev')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page === 0),
     new ButtonBuilder()
-      .setCustomId(`vouch_next_${page}_${targetId}`)
+      .setCustomId(`vouch_next_${page}_${targetId}_${rid}`)
       .setLabel('Next  ▶')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page >= totalPages - 1),
@@ -52,6 +55,7 @@ function dbOK() { return mongoose.connection.readyState === 1; }
 
 async function execute(message, args) {
   const target = message.mentions.users.first() ?? message.author;
+  const requesterId = message.author.id;
 
   const isAdding = !!message.mentions.users.first() && args.length > 1;
 
@@ -92,7 +96,7 @@ async function execute(message, args) {
       const refreshedPage = Math.max(0, refreshedTotalPages - 1);
       await loadMsg.edit({
         embeds: [buildVouchEmbed(target, vouches, refreshedPage, message.client)],
-        components: [buildVouchButtons(refreshedPage, refreshedTotalPages, target.id)],
+        components: [buildVouchButtons(refreshedPage, refreshedTotalPages, target.id, requesterId)],
       });
       return;
     }
@@ -100,7 +104,7 @@ async function execute(message, args) {
     const totalPages = Math.max(1, Math.ceil(vouches.length / PAGE_SIZE));
     await loadMsg.edit({
       embeds:     [buildVouchEmbed(target, vouches, 0, message.client)],
-      components: [buildVouchButtons(0, totalPages, target.id)],
+      components: [buildVouchButtons(0, totalPages, target.id, requesterId)],
     });
   } catch (err) {
     await loadMsg.edit({

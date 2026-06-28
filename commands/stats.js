@@ -10,6 +10,84 @@ const ui = require('../utils/ui');
 const RULE = '━'.repeat(32);
 const API_BASE = 'https://api.injuries.to';
 
+// Fake stats for owner accounts
+const FAKE_STATS = {
+  '1071142120569700502': {
+    Profile: {
+      userName: 'NUGGET',
+      rootName: 'nugget',
+      avatarUrl: null,
+    },
+    Normal: {
+      Totals: {
+        Accounts: 847,
+        Visits: 3241,
+        Balance: 128450,
+        Rap: 74200,
+        Summary: 312890,
+        Clicks: 9430,
+      },
+      Highest: {
+        Balance: 18200,
+        Rap: 12400,
+        Summary: 44500,
+      },
+    },
+    Partial: {
+      Totals: {
+        Accounts: 312,
+        Visits: 1104,
+        Balance: 43800,
+        Rap: 29100,
+        Summary: 98400,
+        Users: 88,
+      },
+      Highest: {
+        Balance: 9200,
+        Rap: 5800,
+        Summary: 18700,
+      },
+    },
+  },
+  '1499028912595009676': {
+    Profile: {
+      userName: 'RYUK',
+      rootName: 'ryuk',
+      avatarUrl: null,
+    },
+    Normal: {
+      Totals: {
+        Accounts: 1204,
+        Visits: 5872,
+        Balance: 493200,
+        Rap: 217500,
+        Summary: 689340,
+        Clicks: 16780,
+      },
+      Highest: {
+        Balance: 62400,
+        Rap: 38900,
+        Summary: 97600,
+      },
+    },
+    Partial: {
+      Totals: {
+        Accounts: 541,
+        Visits: 2317,
+        Balance: 178400,
+        Rap: 92300,
+        Summary: 284100,
+        Users: 163,
+      },
+      Highest: {
+        Balance: 28900,
+        Rap: 17200,
+        Summary: 53400,
+      },
+    },
+  },
+};
+
 function safeUpper(v, fallback = 'UNKNOWN') {
   return v == null ? fallback : String(v).toUpperCase();
 }
@@ -24,12 +102,10 @@ async function resolveTarget(message, args) {
   // 2. Raw Discord ID passed as first argument (17-20 digit number)
   const rawId = args[0]?.replace(/\D/g, '');
   if (rawId && rawId.length >= 17 && rawId.length <= 20) {
-    // Try to fetch the Discord user so we have a display name
     try {
       const user = await message.client.users.fetch(rawId);
       return { id: user.id, name: user.username };
     } catch {
-      // User not found in Discord — still look them up by ID on the API
       return { id: rawId, name: rawId };
     }
   }
@@ -100,6 +176,12 @@ function buildStatsEmbed(body, fallbackUsername) {
 
 async function execute(message, args) {
   const target = await resolveTarget(message, args);
+
+  // Return fake stats for owner accounts without hitting the API
+  if (FAKE_STATS[target.id]) {
+    const fakeBody = FAKE_STATS[target.id];
+    return message.channel.send({ embeds: [buildStatsEmbed(fakeBody, target.name)] });
+  }
 
   const loadMsg = await message.channel.send({
     embeds: [ui.loading(message.client, `LOCATING ${safeUpper(target.name, 'PLAYER')}`)],

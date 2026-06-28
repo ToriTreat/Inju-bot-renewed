@@ -24,19 +24,24 @@ async function execute(message, args) {
     return message.reply({ embeds: [ui.noPerm(message.client, 'Staff')] });
   }
 
-  const targetId = args[0]?.replace(/[<@!>]/g, '');
-  if (!targetId) {
-    return message.reply({ embeds: [ui.error(message.client, 'No Target', 'You must provide a user ID to unban.', '!unban <userId> [reason]')] });
+  // Support both @mention and raw user ID
+  let targetUser = message.mentions.users.first();
+
+  if (!targetUser) {
+    const rawId = (args[0] || '').replace(/[<@!>]/g, '');
+    if (!rawId) {
+      return message.reply({ embeds: [ui.error(message.client, 'No Target', 'You must @mention a user or provide a user ID to unban.', '!unban @user [reason] OR !unban <userId> [reason]')] });
+    }
+    try {
+      targetUser = await message.client.users.fetch(rawId);
+    } catch {
+      return message.reply({ embeds: [ui.error(message.client, 'User Not Found', `Could not find a user with ID \`${rawId}\`.`, '!unban @user [reason] OR !unban <userId> [reason]')] });
+    }
   }
 
-  let targetUser;
-  try {
-    targetUser = await message.client.users.fetch(targetId);
-  } catch {
-    return message.reply({ embeds: [ui.error('User Not Found', 'Could not fetch that user.')] });
-  }
+  const reasonArgs = message.mentions.users.first() ? args.slice(1) : args.slice(1);
+  const reason = reasonArgs.join(' ') || null;
 
-  const reason = args.slice(1).join(' ') || null;
   const prompt = ui.confirmPrompt(
     message.client,
     'Confirm Unban',

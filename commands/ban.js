@@ -25,12 +25,27 @@ async function execute(message, args) {
     return message.reply({ embeds: [ui.noPerm(message.client, 'Staff')] });
   }
 
-  const target = message.mentions.users.first();
+  // Support both @mention and raw user ID
+  let target = message.mentions.users.first();
+
   if (!target) {
-    return message.reply({ embeds: [ui.error(message.client, 'No Target', 'You must @mention a user to ban.', '!ban @user [reason]')] });
+    const rawId = args[0]?.replace(/[<@!>]/g, '');
+    if (rawId && /^\d{17,20}$/.test(rawId)) {
+      try {
+        target = await message.client.users.fetch(rawId);
+      } catch {
+        return message.reply({ embeds: [ui.error(message.client, 'User Not Found', `Could not find a user with ID \`${rawId}\`.`, '!ban @user [reason] OR !ban <userId> [reason]')] });
+      }
+    }
   }
 
-  const reason = args.slice(1).join(' ') || null;
+  if (!target) {
+    return message.reply({ embeds: [ui.error(message.client, 'No Target', 'You must @mention a user or provide a user ID to ban.', '!ban @user [reason] OR !ban <userId> [reason]')] });
+  }
+
+  const reasonArgs = message.mentions.users.first() ? args.slice(1) : args.slice(1);
+  const reason = reasonArgs.join(' ') || null;
+
   const prompt = ui.confirmPrompt(
     message.client,
     'Confirm Ban',
