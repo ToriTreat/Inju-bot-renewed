@@ -3,6 +3,7 @@
 const { hasRole, ROLES } = require('../config/roles');
 const ui     = require('../utils/ui');
 const logger = require('../utils/logger');
+const { icon } = require('../utils/iconMap');
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const TOP_GIF    = 'https://cdn.discordapp.com/attachments/1506434367491276812/1509399153321443388/image0_1.gif';
@@ -437,7 +438,7 @@ async function execute(message, args) {
   }
 
   const statusMsg = await message.reply({
-    content: `⏳ Creating **${THREADS.length}** threads in ${targetChannel}…`,
+    content: `${icon('STATUS_LOADING')} Creating **${THREADS.length}** threads in ${targetChannel}…`,
   });
 
   let created = 0;
@@ -473,7 +474,7 @@ async function execute(message, args) {
 
   await statusMsg.edit({
     content:
-      `✅ Done! Created **${created}** thread${created !== 1 ? 's' : ''} in ${targetChannel}` +
+      `${icon('STATUS_SUCCESS')} Done! Created **${created}** thread${created !== 1 ? 's' : ''} in ${targetChannel}` +
       (failed ? `, **${failed}** failed — check bot permissions.` : '.'),
   });
 }
