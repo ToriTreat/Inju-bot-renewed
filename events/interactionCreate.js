@@ -1,6 +1,6 @@
 'use strict';
 
-const { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const mongoose = require('mongoose');
 const { baseEmbed, COLORS, createTerminal, formatRow, ts, statusLabel, BTN, ticketWelcomeEmbed, ticketCloseConfirmEmbed } = require('../utils/embeds');
 const { icon } = require('../utils/iconMap');
@@ -118,32 +118,52 @@ async function sendTranscript(client, ticket, closerUser, channelName, rawMessag
     timestamp: new Date().toISOString(),
   };
 
-  await transcriptCh.send({ embeds: [headerEmbed] }).catch(() => {});
+  // Build the .txt file content — clean, readable, no code blocks needed
+  const divider = '━'.repeat(54);
+  const now     = new Date();
+  const nowStr  = now.toLocaleString('en-GB', { timeZone: 'UTC', hour12: false })
+                    .replace(',', '') + ' UTC';
 
-  if (msgs.length === 0) return;
-
-  // Format messages in clean monospace blocks
   const lines = msgs.map(m => {
-    const d   = new Date(m.timestamp);
-    const hm  = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-    const day = d.toLocaleDateString('en-GB');
+    const d    = new Date(m.timestamp);
+    const time = d.toLocaleString('en-GB', { timeZone: 'UTC', hour12: false })
+                   .replace(',', '');
     const tag  = m.author || 'Unknown';
-    const body = (m.content || '[embed/attachment]').replace(/`/g, "'").slice(0, 300);
-    return `[${day} ${hm}] ${tag}: ${body}`;
+    const body = m.content || '[embed / attachment]';
+    return `  [ ${time} ]  ${tag}\n  ${body}`;
   });
 
-  // Chunk into ≤1950-char code blocks so nothing overflows Discord's limit
-  let chunk = '';
-  for (const line of lines) {
-    if (chunk.length + line.length + 2 > 1950) {
-      await transcriptCh.send({ content: '```\n' + chunk + '\n```' }).catch(() => {});
-      chunk = '';
-    }
-    chunk += line + '\n';
-  }
-  if (chunk.trim()) {
-    await transcriptCh.send({ content: '```\n' + chunk + '\n```' }).catch(() => {});
-  }
+  const fileText = [
+    divider,
+    '  BADDIES BOT  ·  TICKET TRANSCRIPT',
+    divider,
+    '',
+    `  Ticket    :  ${ticket?.ticketId || 'Unknown'}`,
+    `  Channel   :  #${channelName}`,
+    `  Opened By :  ${ticket?.userId ? `<@${ticket.userId}> (ID: ${ticket.userId})` : 'Unknown'}`,
+    `  Closed By :  ${closerUser.tag || closerUser.id} (ID: ${closerUser.id})`,
+    `  Closed At :  ${nowStr}`,
+    `  Messages  :  ${msgs.length}`,
+    '',
+    divider,
+    '  CONVERSATION LOG',
+    divider,
+    '',
+    ...(msgs.length > 0
+      ? lines.flatMap(l => [l, ''])
+      : ['  (no messages recorded)']),
+    divider,
+    '  END OF TRANSCRIPT',
+    divider,
+  ].join('\n');
+
+  const attachment = new AttachmentBuilder(
+    Buffer.from(fileText, 'utf-8'),
+    { name: `transcript-${(ticket?.ticketId || channelName).replace(/[^a-z0-9-]/gi, '-')}.txt` }
+  );
+
+  // Send embed + file in one message — Discord renders .txt inline (click View, no download needed)
+  await transcriptCh.send({ embeds: [headerEmbed], files: [attachment] }).catch(() => {});
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
