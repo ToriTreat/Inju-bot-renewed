@@ -63,10 +63,8 @@ const CATEGORIES = {
     description: 'Ban management and member actions',
     color:       theme.DANGER,
     commands: [
-      { name: '!ban @user [reason]',           desc: 'Ban a member — supports @mention or user ID' },
-      { name: '!ban <userId> [reason]',        desc: 'Ban by raw user ID' },
-      { name: '!unban @user [reason]',         desc: 'Unban a member — supports @mention or user ID' },
-      { name: '!unban <userId> [reason]',      desc: 'Unban by raw user ID' },
+      { name: '!ban @user|<id> [reason]',       desc: 'Ban a member — accepts @mention or raw user ID' },
+      { name: '!unban @user|<id> [reason]',    desc: 'Unban a member — accepts @mention or raw user ID' },
       { name: '!kick @user [reason]',          desc: 'Kick a member from the server' },
       { name: '!timeout @user <min> [reason]', desc: 'Timeout a member for X minutes' },
       { name: '!warn @user <reason>',          desc: 'Issue a warning to a member' },
