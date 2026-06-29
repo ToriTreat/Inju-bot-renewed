@@ -65,4 +65,4 @@ async function execute(message, args) {
   });
 }
 
-module.exports = { name: 'ban', execute, buildBanResultEmbed, getPending, clearPending };
+module.exports = { name: 'ban', execute, buildBanResultEmbed, getPending, clearPending, setPending };
