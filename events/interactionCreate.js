@@ -1,3 +1,5 @@
+'use strict';
+
 const { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const mongoose = require('mongoose');
 const { baseEmbed, COLORS, createTerminal, formatRow, ts, statusLabel, BTN, ticketWelcomeEmbed, ticketCloseConfirmEmbed } = require('../utils/embeds');
@@ -8,7 +10,7 @@ const Ticket = require('../database/models/Ticket');
 const Log = require('../database/models/Log');
 const config = require('../config/bot');
 const theme = require('../utils/theme');
-const { hasAnyStaffRole } = require('../config/roles');
+const { hasAnyStaffRole, hasRole, ROLES } = require('../config/roles');
 const logger = require('../utils/logger');
 const ui = require('../utils/ui');
 
@@ -18,42 +20,52 @@ const { getPending, clearPending, buildBanResultEmbed } = require('../commands/b
 
 if (!global._baddiesInteractions) global._baddiesInteractions = new Map();
 
-const INTERACTION_TTL_MS = 30000;
+const INTERACTION_TTL_MS     = 30000;
 const INTERACTION_CLEANUP_MS = 60000;
 
-// Track who clicked the "CLOSE TICKET" button, keyed by channel ID.
-// This lets ticket_close_confirm and ticket_close_cancel verify it's the same person.
+// Transcript channel — all closed ticket transcripts are posted here
+const TRANSCRIPT_CHANNEL_ID = '1520805770566828132';
+
+// Track who clicked "CLOSE TICKET", keyed by channel ID
 const ticketClosePending = new Map();
+
+// Track who clicked "CLAIM" (awaiting include-user choice), keyed by channel ID
+const pendingClaim = new Map();   // channelId → { clickerId, welcomeMsgId, ts }
+
+// Track currently-claimed tickets, keyed by channel ID
+const claimedTickets = new Map(); // channelId → { claimerId, userId, includeUser }
+
+// Track the welcome message ID for each ticket channel (needed for button swaps)
+const ticketWelcomeMsgId = new Map(); // channelId → messageId
 
 setInterval(() => {
   const now = Date.now();
   for (const [id, ts] of global._baddiesInteractions) {
     if (now - ts > INTERACTION_TTL_MS) global._baddiesInteractions.delete(id);
   }
-  // Also clean up stale ticket-close sessions (60 s TTL)
   for (const [channelId, entry] of ticketClosePending) {
     if (now - entry.ts > 60_000) ticketClosePending.delete(channelId);
+  }
+  for (const [channelId, entry] of pendingClaim) {
+    if (now - entry.ts > 120_000) pendingClaim.delete(channelId);
   }
 }, INTERACTION_CLEANUP_MS).unref();
 
 function dbOK() { return mongoose.connection.readyState === 1; }
 
-// Shared auth helper for ticket channels:
-// returns true if the user is staff OR is the ticket author.
+// Shared auth helper: staff OR ticket author
 async function canManageTicket(guild, interaction) {
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) return false;
   if (hasAnyStaffRole(member)) return true;
 
-  // DB lookup
   if (dbOK()) {
     const ticket = await Ticket.findOne({ channelId: interaction.channel?.id, status: 'open' }).catch(() => null);
     if (ticket && String(ticket.userId) === interaction.user.id) return true;
   }
 
-  // Fallback: channel name contains username slug
   const channelName = interaction.channel?.name ?? '';
-  const slug = interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const slug  = interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '-');
   const slug2 = interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '');
   return channelName.includes(slug) || channelName.includes(slug2);
 }
@@ -66,6 +78,76 @@ const LEGACY_CATEGORIES = [
   { label: 'Other',           value: 'other',   emoji: '\uD83D\uDCDD' },
 ];
 
+// ─── Ticket button rows ───────────────────────────────────────────────────────
+function buildNormalTicketRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('ticket_close').setLabel('CLOSE TICKET').setEmoji(icon('BTN_CLOSE')).setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('ticket_claim').setLabel('CLAIM').setStyle(ButtonStyle.Secondary),
+  );
+}
+
+function buildClaimedTicketRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('ticket_close').setLabel('CLOSE TICKET').setEmoji(icon('BTN_CLOSE')).setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('ticket_unclaim').setLabel('UNCLAIM').setStyle(ButtonStyle.Success),
+  );
+}
+
+// ─── Auto-transcript sender ───────────────────────────────────────────────────
+async function sendTranscript(client, ticket, closerUser, channelName, rawMessages) {
+  const transcriptCh = await client.channels.fetch(TRANSCRIPT_CHANNEL_ID).catch(() => null);
+  if (!transcriptCh) return;
+
+  // Build sorted message list (oldest → newest), filter system/bot-only lines
+  const msgs = (rawMessages || [])
+    .filter(m => m.author && !m.system)
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  const headerEmbed = {
+    color: 0x5865F2,
+    title: '📋  Ticket Transcript',
+    fields: [
+      { name: '🎫  Ticket',    value: ticket?.ticketId  || 'Unknown',             inline: true },
+      { name: '📁  Channel',   value: `#${channelName}`,                           inline: true },
+      { name: '💬  Messages',  value: `${msgs.length}`,                            inline: true },
+      { name: '👤  Opened By', value: ticket?.userId ? `<@${ticket.userId}>` : 'Unknown', inline: true },
+      { name: '🔒  Closed By', value: `<@${closerUser.id}>`,                       inline: true },
+      { name: '🕐  Closed At', value: `<t:${Math.floor(Date.now() / 1000)}:f>`,    inline: true },
+    ],
+    footer: { text: 'BADDIES BOT  ·  Ticket System' },
+    timestamp: new Date().toISOString(),
+  };
+
+  await transcriptCh.send({ embeds: [headerEmbed] }).catch(() => {});
+
+  if (msgs.length === 0) return;
+
+  // Format messages in clean monospace blocks
+  const lines = msgs.map(m => {
+    const d   = new Date(m.timestamp);
+    const hm  = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const day = d.toLocaleDateString('en-GB');
+    const tag  = m.author || 'Unknown';
+    const body = (m.content || '[embed/attachment]').replace(/`/g, "'").slice(0, 300);
+    return `[${day} ${hm}] ${tag}: ${body}`;
+  });
+
+  // Chunk into ≤1950-char code blocks so nothing overflows Discord's limit
+  let chunk = '';
+  for (const line of lines) {
+    if (chunk.length + line.length + 2 > 1950) {
+      await transcriptCh.send({ content: '```\n' + chunk + '\n```' }).catch(() => {});
+      chunk = '';
+    }
+    chunk += line + '\n';
+  }
+  if (chunk.trim()) {
+    await transcriptCh.send({ content: '```\n' + chunk + '\n```' }).catch(() => {});
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction) {
@@ -77,7 +159,7 @@ module.exports = {
       if (!claimed) return;
       if (!guild) return interaction.reply({ content: 'This command is only available in servers.', ephemeral: true });
 
-      const msg = { client: interaction.client, author: user, guild };
+      const msg    = { client: interaction.client, author: user, guild };
       const client = interaction.client;
 
       if (interaction.isButton()) {
@@ -85,14 +167,15 @@ module.exports = {
         // ── Ban / Unban confirmation ──────────────────────────────────────────
         if (customId.startsWith('mod_confirm_') || customId.startsWith('mod_cancel_')) {
           const msgId = interaction.message.id;
-          const data = getPending(msgId);
+          const data  = getPending(msgId);
 
-          // Check BEFORE deferring so we can still send an ephemeral reply
           if (!data) {
-            return interaction.reply({ embeds: [ui.error(client, 'Expired', 'This confirmation has expired or was already used.')], ephemeral: true });
+            return interaction.reply({
+              embeds: [ui.error(client, 'Expired', 'This confirmation has expired or was already used.')],
+              ephemeral: true,
+            });
           }
 
-          // Only the moderator who triggered the command can use these buttons
           if (interaction.user.id !== data.moderator.id) {
             return interaction.reply({
               embeds: [ui.error(client, 'Not Yours', 'Only the moderator who ran this command can confirm or cancel it.')],
@@ -140,15 +223,13 @@ module.exports = {
         }
 
         // ── Vouch pagination ──────────────────────────────────────────────────
-        // customId format: vouch_<dir>_<page>_<targetId>_<requesterId>
         if (customId.startsWith('vouch_')) {
-          const parts = customId.split('_');
+          const parts       = customId.split('_');
           const dir         = parts[1];
           const curPage     = parseInt(parts[2], 10) || 0;
           const targetId    = parts[3];
           const requesterId = parts[4] ?? null;
 
-          // Lock pagination to the person who ran !vouch
           if (requesterId && interaction.user.id !== requesterId) {
             return interaction.reply({
               embeds: [ui.error(client, 'Not Yours', 'Only the person who ran this command can flip the pages.')],
@@ -176,10 +257,10 @@ module.exports = {
           }
 
           const totalPages = Math.max(1, Math.ceil(vouches.length / VOUCH_PAGE_SIZE));
-          const nextPage = dir === 'prev' ? Math.max(0, curPage - 1) : Math.min(totalPages - 1, curPage + 1);
+          const nextPage   = dir === 'prev' ? Math.max(0, curPage - 1) : Math.min(totalPages - 1, curPage + 1);
 
           await interaction.editReply({
-            embeds: [buildVouchEmbed(target, vouches, nextPage, client)],
+            embeds:     [buildVouchEmbed(target, vouches, nextPage, client)],
             components: [buildVouchButtons(nextPage, totalPages, targetId, requesterId)],
           });
           return;
@@ -187,7 +268,6 @@ module.exports = {
 
         // ── Ticket: show close-confirmation prompt ────────────────────────────
         if (customId === 'ticket_close') {
-          // Auth check BEFORE replying — ephemeral error if not allowed
           const allowed = await canManageTicket(guild, interaction);
           if (!allowed) {
             return interaction.reply({
@@ -196,20 +276,11 @@ module.exports = {
             });
           }
 
-          // Record who clicked so confirm/cancel can verify the same person
           ticketClosePending.set(interaction.channel.id, { clickerId: interaction.user.id, ts: Date.now() });
 
           const confirmRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId('ticket_close_confirm')
-              .setLabel('CONFIRM')
-              .setEmoji(icon('STATUS_SUCCESS'))
-              .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-              .setCustomId('ticket_close_cancel')
-              .setLabel('CANCEL')
-              .setEmoji(icon('STATUS_ERROR'))
-              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('ticket_close_confirm').setLabel('CONFIRM').setEmoji(icon('STATUS_SUCCESS')).setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('ticket_close_cancel').setLabel('CANCEL').setEmoji(icon('STATUS_ERROR')).setStyle(ButtonStyle.Secondary),
           );
           await interaction.reply({
             embeds: [ticketCloseConfirmEmbed()],
@@ -220,7 +291,6 @@ module.exports = {
 
         // ── Ticket: confirm close ─────────────────────────────────────────────
         if (customId === 'ticket_close_confirm') {
-          // Check auth BEFORE deferring
           const allowed = await canManageTicket(guild, interaction);
           if (!allowed) {
             return interaction.reply({
@@ -229,9 +299,8 @@ module.exports = {
             });
           }
 
-          // Ensure it's the same person who clicked the initial close button (staff override allowed)
           const closePending = ticketClosePending.get(interaction.channel.id);
-          const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+          const member  = await guild.members.fetch(interaction.user.id).catch(() => null);
           const isStaff = member && hasAnyStaffRole(member);
 
           if (closePending && closePending.clickerId !== interaction.user.id && !isStaff) {
@@ -242,7 +311,6 @@ module.exports = {
           }
 
           ticketClosePending.delete(interaction.channel.id);
-
           await interaction.deferReply();
 
           let ticket = null;
@@ -250,17 +318,22 @@ module.exports = {
             ticket = await Ticket.findOne({ channelId: interaction.channel?.id, status: 'open' }).catch(() => null);
           }
 
-          if (ticket) {
-            ticket.status = 'closed';
-            ticket.closedAt = new Date();
-            ticket.closedBy = interaction.user.id;
-
-            const messages = await interaction.channel.messages.fetch({ limit: 100 }).catch(() => []);
-            ticket.transcript = messages.reverse().map((m) => ({
-              author: m.author?.tag || 'Unknown',
-              content: m.content || '[embed/sticker]',
+          // Collect messages for transcript
+          const fetchedMsgs = await interaction.channel.messages.fetch({ limit: 100 }).catch(() => new Map());
+          const transcriptMsgs = [...fetchedMsgs.values()]
+            .filter(m => !m.system)
+            .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+            .map(m => ({
+              author:    m.author?.tag || 'Unknown',
+              content:   m.content || '[embed/attachment]',
               timestamp: m.createdAt,
             }));
+
+          if (ticket) {
+            ticket.status     = 'closed';
+            ticket.closedAt   = new Date();
+            ticket.closedBy   = interaction.user.id;
+            ticket.transcript = transcriptMsgs;
             await ticket.save().catch(() => {});
           }
 
@@ -274,6 +347,13 @@ module.exports = {
             }).catch(() => {});
           }
 
+          // Send auto-transcript to the transcript channel
+          await sendTranscript(client, ticket, interaction.user, interaction.channel.name, transcriptMsgs);
+
+          // Clean up claim state if this ticket was claimed
+          claimedTickets.delete(interaction.channel.id);
+          ticketWelcomeMsgId.delete(interaction.channel.id);
+
           await interaction.editReply({
             embeds: [baseEmbed(msg, theme.ASTRAL_CORE)
               .setTitle(`${icon('BTN_CLOSE')} ${toSmallCaps('TICKET CLOSING')}`)
@@ -285,9 +365,8 @@ module.exports = {
 
         // ── Ticket: cancel close ──────────────────────────────────────────────
         if (customId === 'ticket_close_cancel') {
-          // Only the person who clicked close (or staff) can cancel
           const closePending = ticketClosePending.get(interaction.channel.id);
-          const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+          const member  = await guild.members.fetch(interaction.user.id).catch(() => null);
           const isStaff = member && hasAnyStaffRole(member);
 
           if (closePending && closePending.clickerId !== interaction.user.id && !isStaff) {
@@ -298,32 +377,190 @@ module.exports = {
           }
 
           ticketClosePending.delete(interaction.channel.id);
+          await interaction.reply({ embeds: [ui.info(client, 'Cancelled', 'Ticket closure cancelled.')], ephemeral: true });
+          return;
+        }
+
+        // ── Ticket: claim — prompt "include user?" ────────────────────────────
+        if (customId === 'ticket_claim') {
+          const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+          if (!member || !hasAnyStaffRole(member)) {
+            return interaction.reply({
+              embeds: [ui.error(client, 'Permission Denied', 'Only staff can claim a ticket.')],
+              ephemeral: true,
+            });
+          }
+
+          if (claimedTickets.has(interaction.channel.id)) {
+            return interaction.reply({
+              embeds: [ui.error(client, 'Already Claimed', 'This ticket is already claimed.')],
+              ephemeral: true,
+            });
+          }
+
+          // Store which message has the buttons so we can swap them after
+          pendingClaim.set(interaction.channel.id, {
+            clickerId:    interaction.user.id,
+            welcomeMsgId: interaction.message.id,
+            ts:           Date.now(),
+          });
+
+          const choiceRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('ticket_claim_yes').setLabel('YES — they can view').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('ticket_claim_no').setLabel('NO — hide from them').setStyle(ButtonStyle.Danger),
+          );
 
           await interaction.reply({
-            embeds: [ui.info(client, 'Cancelled', 'Ticket closure cancelled.')],
+            embeds: [{
+              color: 0xFFA500,
+              title: '🔒  Claim Ticket',
+              description: 'Should the **ticket owner** be able to **view** this ticket while it is claimed?\n\nFounders only will be able to message and take action.',
+            }],
+            components: [choiceRow],
             ephemeral: true,
           });
           return;
         }
 
+        // ── Ticket: claim_yes / claim_no ──────────────────────────────────────
+        if (customId === 'ticket_claim_yes' || customId === 'ticket_claim_no') {
+          const includeUser = customId === 'ticket_claim_yes';
+          const claimData   = pendingClaim.get(interaction.channel.id);
+
+          if (!claimData || claimData.clickerId !== interaction.user.id) {
+            return interaction.reply({
+              embeds: [ui.error(client, 'Expired', 'Claim session expired or was not yours.')],
+              ephemeral: true,
+            });
+          }
+
+          pendingClaim.delete(interaction.channel.id);
+
+          // Get ticket userId for permission overrides
+          let ticketUserId = null;
+          if (dbOK()) {
+            const t = await Ticket.findOne({ channelId: interaction.channel.id, status: 'open' }).catch(() => null);
+            ticketUserId = t?.userId ?? null;
+          }
+
+          // Build overwrite list
+          const overwrites = [
+            { id: guild.id,                  deny:  [PermissionFlagsBits.ViewChannel] },
+            { id: client.user.id,            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ManageChannels] },
+            { id: ROLES.FOUNDER,             allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageMessages] },
+          ];
+
+          if (ticketUserId) {
+            overwrites.push({
+              id: ticketUserId,
+              ...(includeUser
+                ? { allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory] }
+                : { deny:  [PermissionFlagsBits.ViewChannel] }),
+            });
+          }
+
+          await interaction.channel.permissionOverwrites.set(overwrites).catch(() => {});
+
+          // Store claim state
+          claimedTickets.set(interaction.channel.id, {
+            claimerId:   interaction.user.id,
+            userId:      ticketUserId,
+            includeUser,
+          });
+
+          // Swap buttons on the welcome message
+          const welcomeMsgId = claimData.welcomeMsgId;
+          if (welcomeMsgId) {
+            const welcomeMsg = await interaction.channel.messages.fetch(welcomeMsgId).catch(() => null);
+            if (welcomeMsg) {
+              await welcomeMsg.edit({ components: [buildClaimedTicketRow()] }).catch(() => {});
+            }
+          }
+
+          // Announce claim in channel
+          await interaction.channel.send({
+            embeds: [{
+              color: 0xFFA500,
+              title: '🔒  Ticket Claimed & Frozen',
+              description:
+                `This ticket has been **claimed** by <@${interaction.user.id}>.\n\n` +
+                `⚠️ The ticket is now **frozen** — only **Founders** can message or take action.\n` +
+                (includeUser ? '👁️ The ticket owner **can** still view this channel.' : '🚫 The ticket owner **cannot** see this channel.'),
+              timestamp: new Date().toISOString(),
+            }],
+          }).catch(() => {});
+
+          await interaction.reply({ content: '✅ Ticket claimed.', ephemeral: true });
+          return;
+        }
+
+        // ── Ticket: unclaim ───────────────────────────────────────────────────
+        if (customId === 'ticket_unclaim') {
+          const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+          if (!member || !hasRole(member, ROLES.FOUNDER)) {
+            return interaction.reply({
+              embeds: [ui.error(client, 'Permission Denied', 'Only Founders can unclaim a ticket.')],
+              ephemeral: true,
+            });
+          }
+
+          const claimState = claimedTickets.get(interaction.channel.id);
+          claimedTickets.delete(interaction.channel.id);
+
+          // Get ticket info for permission restore
+          let ticketUserId = claimState?.userId ?? null;
+          if (!ticketUserId && dbOK()) {
+            const t = await Ticket.findOne({ channelId: interaction.channel.id, status: 'open' }).catch(() => null);
+            ticketUserId = t?.userId ?? null;
+          }
+
+          // Restore normal ticket permissions
+          const overwrites = [
+            { id: guild.id,       deny:  [PermissionFlagsBits.ViewChannel] },
+            { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ManageChannels] },
+          ];
+          if (ticketUserId) {
+            overwrites.push({ id: ticketUserId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles] });
+          }
+          if (config.supportRoleId) {
+            overwrites.push({ id: config.supportRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ReadMessageHistory] });
+          }
+
+          await interaction.channel.permissionOverwrites.set(overwrites).catch(() => {});
+
+          // Swap buttons back to normal
+          const welcomeMsgId = ticketWelcomeMsgId.get(interaction.channel.id);
+          if (welcomeMsgId) {
+            const welcomeMsg = await interaction.channel.messages.fetch(welcomeMsgId).catch(() => null);
+            if (welcomeMsg) {
+              await welcomeMsg.edit({ components: [buildNormalTicketRow()] }).catch(() => {});
+            }
+          }
+
+          await interaction.channel.send({
+            embeds: [{
+              color: 0x57F287,
+              title: '🔓  Ticket Unclaimed',
+              description: `Ticket has been **unclaimed** by <@${interaction.user.id}>. Support staff can now access this ticket again.`,
+              timestamp: new Date().toISOString(),
+            }],
+          }).catch(() => {});
+
+          await interaction.reply({ content: '✅ Ticket unclaimed.', ephemeral: true });
+          return;
+        }
+
         // ── Verify click ──────────────────────────────────────────────────────
         if (customId === 'verify_click') {
-          if (!dbOK()) {
-            return interaction.reply({ content: 'Database unavailable.', ephemeral: true });
-          }
+          if (!dbOK()) return interaction.reply({ content: 'Database unavailable.', ephemeral: true });
 
           const VerificationSession = require('../database/models/VerificationSession');
           const crypto = require('crypto');
+          const state  = crypto.randomBytes(16).toString('hex');
 
-          const state = crypto.randomBytes(16).toString('hex');
+          await VerificationSession.create({ discordId: interaction.user.id, state, guildId: guild.id }).catch(() => {});
 
-          await VerificationSession.create({
-            discordId: interaction.user.id,
-            state,
-            guildId: guild.id,
-          }).catch(() => {});
-
-          const params = new URLSearchParams({ state, guildId: guild.id });
+          const params   = new URLSearchParams({ state, guildId: guild.id });
           const oauthURL = config.redirectUri.replace('/callback', '/login') + '?' + params;
 
           await interaction.reply({
@@ -337,8 +574,7 @@ module.exports = {
         if (customId === 'ticket_open_panel') {
           const { buildTicketSelector } = require('../commands/ticket');
           await interaction.reply({
-            embeds: [baseEmbed(msg, theme.ASTRAL_CORE)
-              .setDescription('**Select your mission type below:**')],
+            embeds: [baseEmbed(msg, theme.ASTRAL_CORE).setDescription('**Select your mission type below:**')],
             components: [buildTicketSelector()],
             ephemeral: true,
           });
@@ -351,6 +587,7 @@ module.exports = {
         }
       }
 
+      // ════════════════════════════════════════════════════════════════════════
       if (interaction.isStringSelectMenu()) {
 
         // ── Help category selector ────────────────────────────────────────────
@@ -363,7 +600,7 @@ module.exports = {
             return;
           }
           await interaction.editReply({
-            embeds: [buildCategoryEmbed(key)],
+            embeds:     [buildCategoryEmbed(key)],
             components: [interaction.message.components[0]],
           });
           return;
@@ -372,20 +609,17 @@ module.exports = {
         // ── Ticket creation ───────────────────────────────────────────────────
         if (customId === 'ticket_category_select') {
           const { buildTicketConfirmEmbed, TICKET_CATEGORIES } = require('../commands/ticket');
-
           await interaction.deferUpdate();
 
           const category = interaction.values[0];
-          const user = interaction.user;
-          const guild = interaction.guild;
+          const user     = interaction.user;
+          const guild    = interaction.guild;
 
-          const cat = TICKET_CATEGORIES.find(c => c.value === category) ?? TICKET_CATEGORIES[0];
+          const cat     = TICKET_CATEGORIES.find(c => c.value === category) ?? TICKET_CATEGORIES[0];
           const catSlug = category.replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 20);
           const channelName = `ticket-${user.username.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${catSlug}`.slice(0, 100);
 
-          const existing = guild.channels.cache.find(
-            c => c.name === channelName && c.isTextBased()
-          );
+          const existing = guild.channels.cache.find(c => c.name === channelName && c.isTextBased());
           if (existing) {
             await interaction.followUp({
               embeds: [ui.warning(client, 'Ticket Exists', `You already have an open ticket: ${existing}`)],
@@ -411,7 +645,6 @@ module.exports = {
               ],
             });
 
-            // Save ticket to DB so close confirmation can find it later
             const ticketId = 'TKT-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 4).toUpperCase();
             if (dbOK()) {
               await Ticket.create({
@@ -424,19 +657,14 @@ module.exports = {
               }).catch(() => {});
             }
 
-            const closeRow = new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId('ticket_close')
-                .setLabel('CLOSE TICKET')
-                .setEmoji(icon('BTN_CLOSE'))
-                .setStyle(ButtonStyle.Danger),
-            );
-
-            await channel.send({
+            const welcomeMsg = await channel.send({
               content: `<@${user.id}>`,
               embeds: [ticketWelcomeEmbed(user, cat.label)],
-              components: [closeRow],
+              components: [buildNormalTicketRow()],
             });
+
+            // Remember which message holds the ticket buttons for CLAIM/UNCLAIM swaps
+            ticketWelcomeMsgId.set(channel.id, welcomeMsg.id);
 
             await interaction.editReply({
               embeds: [buildTicketConfirmEmbed(channel, cat.label)],
@@ -453,9 +681,7 @@ module.exports = {
 
         // ── Legacy ticket creation ────────────────────────────────────────────
         if (customId === 'ticket_create') {
-          if (!dbOK()) {
-            return interaction.reply({ content: 'Database unavailable.', ephemeral: true });
-          }
+          if (!dbOK()) return interaction.reply({ content: 'Database unavailable.', ephemeral: true });
 
           const category = LEGACY_CATEGORIES.find(c => c.value === interaction.values[0]);
           if (!category) return;
@@ -470,7 +696,7 @@ module.exports = {
 
           await interaction.deferReply({ ephemeral: true });
 
-          const ticketId = 'TKT-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 4).toUpperCase();
+          const ticketId    = 'TKT-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 4).toUpperCase();
           const channelName = `ticket-${user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
           const ticketChannel = await guild.channels.create({
@@ -484,24 +710,18 @@ module.exports = {
             ],
           });
 
-          await Ticket.create({
-            ticketId, channelId: ticketChannel.id, guildId: guild.id,
-            userId: user.id, username: user.username, status: 'open',
-          });
+          await Ticket.create({ ticketId, channelId: ticketChannel.id, guildId: guild.id, userId: user.id, username: user.username, status: 'open' });
 
           const embed = baseEmbed(msg, COLORS.TICKET_OPEN)
             .setThumbnail(interaction.client.user.displayAvatarURL())
             .setDescription('-# Your support channel is ready. Staff will assist you shortly.')
             .addFields(
-              { name: '? Opened By', value: `**${user.tag}**`, inline: true },
-              { name: '? Category', value: `${category.emoji} **${category.label}**`, inline: true },
-              { name: '? Created', value: `${ts()}`, inline: true },
+              { name: '? Opened By', value: `**${user.tag}**`,              inline: true },
+              { name: '? Category',  value: `${category.emoji} **${category.label}**`, inline: true },
+              { name: '? Created',   value: `${ts()}`,                      inline: true },
             );
 
-          const row = new ActionRowBuilder().addComponents(
-            BTN.danger('tkt_close', 'Close Ticket'),
-          );
-
+          const row = new ActionRowBuilder().addComponents(BTN.danger('tkt_close', 'Close Ticket'));
           await ticketChannel.send({ content: `${user}`, embeds: [embed], components: [row] });
           await interaction.editReply({
             embeds: [baseEmbed(msg, COLORS.TICKET_OPEN).setThumbnail(interaction.client.user.displayAvatarURL()).setDescription('? Ticket created: ' + ticketChannel)],
