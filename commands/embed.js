@@ -1,6 +1,6 @@
 'use strict';
 
-const { hasAnyStaffRole } = require('../config/roles');
+const { hasRole, ROLES } = require('../config/roles');
 const ui     = require('../utils/ui');
 const logger = require('../utils/logger');
 
@@ -62,14 +62,14 @@ const THREADS = [
 
 **HOW TO GET TIKTOK LIVE ACC:**
 • GO TO ROBLOX CROSSTRADING SERVER AND TRADE FOR ONE
-• USE THIS FOLLOWER BOTTING SERVICE — BOT 1K FOLLOWERS FOR 2$: https://yoursmm.net/
-• OR USE THIS METHOD TO GET 1K FOLLOWERS IN 3 DAYS: https://justpaste.it/follow-method
+• USE THIS FOLLOWER BOTTING SERVICE — BOT 1K FOLLOWERS FOR 2$: https://usurmin.net/
+• OR USE THIS METHOD TO GET 1K FOLLOWERS IN 3 DAYS: https://pastebin.com/jTcFollow-method
 
 **CHOOSING LINK:**
 • GO TO INSANITY SITES AND PICK ONE OF THE TIKTOK LINKS
 • ALWAYS TEST THE LINK BEFORE GOING LIVE
 • IF LINK IS FLAGGED, TRY REMOVING THE WWW. OR HTTPS: FROM THE LINK
-• USING BEACONAI? MAKE A BEACONAI BIOLINK TO LOOK MORE REALISTIC. THIS IS MY BEACONS AI https://beacons.ai/joinadoptme YOU CAN TAKE INSPIRATION AND THEN ADD IT TO YOUR TIKTOK BIO
+• USING BEACONAI? MAKE A BEACONAI BIOLINK TO LOOK MORE REALISTIC — TAKE INSPIRATION AND ADD IT TO YOUR TIKTOK BIO
 • IF YOU CAN'T ADD LINK TO BIO, CONVERT YOUR ACCOUNT TO A BUSINESS ACCOUNT`),
       box(`**HOW TO GO LIVE / LOOP VIDEO:**
 • ON PC: DOWNLOAD LIVE STUDIO, SET IT UP, PICK A GOOD VIDEO AND GO LIVE
@@ -98,8 +98,8 @@ const THREADS = [
 • GO LIVE UNTIL VIEWERS GROW. WHEN THEY DROP A BIT, END IMMEDIATELY → START AGAIN. REPEAT UNTIL YOU HAVE STABLE ASF LIVE WITH HUNDREDS OF VIEWERS!!
 
 **TUTORIAL VIDS:**
-https://youtu.be/B-zZHryfuTs?si=XmrEatq2l3nyd0UP
-https://www.youtube.com/watch?v=RGaJMb7bRq8&t=1s`),
+https://www.youtube.com/watch?v=Bx2HnyfuTuI
+https://www.youtube.com/watch?v=RGazJMbYpRqI`),
       gif(BOTTOM_GIF),
     ],
   },
@@ -152,7 +152,7 @@ You need a PC — it won't work on mobile because it doesn't let you hide the br
 
 **STEP 1:** CREATE A SERVER & THE DUALHOOK LINK IN THE WEBSITE WHERE YOU ARE TEACHING MEMBERS HOW TO GET HITS AT THE SAME TIME — YOU'LL BE STEALING THEIR HITS
 
-**STEP 2:** HEAD OVER TO https://discord.new/H3PMnKQpFqVZ
+**STEP 2:** HEAD OVER TO https://discord.com/template/CpjfG6AdH6ZvR
 Doesn't have to be exactly that, but it needs to have the server aspects.
 
 **STEP 3:** ONCE YOUR SERVER IS DONE, PARTNER WITH AS MANY SERVERS AS YOU CAN, INVITE YOUR FRIENDS, AND STEAL MEMBERS FROM DIFFERENT SERVERS SECRETLY
@@ -160,7 +160,7 @@ Doesn't have to be exactly that, but it needs to have the server aspects.
 **STEP 4:** KEEP YOUR SERVER ACTIVE — ADD MODS, ADMINS, AND MAYBE EVEN A CO-OWNER!!
 
 **TUTORIAL:**
-https://streamable.com/u88d7u`),
+https://streamable.com/u89b0u`),
       gif(BOTTOM_GIF),
     ],
   },
@@ -214,7 +214,7 @@ https://chromewebstore.google.com/detail/ropro-enhance-your-roblox/adbacgifemdbh
 > IF YOU SEE THIS YOU CAN GET FREE PERM/GAME PASSES WITH THE LINK IN MY TIKTOK BIO
 
 **Alternative Link Hiders:**
-• https://linktr.ee/512f6
+• https://linktr.ee/5l2f6
 • https://linktr.ee/
 
 **Notes:**
@@ -234,7 +234,7 @@ https://temp-mail.org/uk`),
       box(`**─── BSS VERY OP METHOD ───**
 *(Two accounts with 18–20 hives per day)*
 
-**1.** Go to https://bssmvalues.com/
+**1.** Go to https://bssrvalues.com/
 
 **2.** Find rich people, give them a good overpay and tell them to add you on Discord
 
@@ -243,14 +243,13 @@ https://temp-mail.org/uk`),
 **4.** Get their account and stuff
 
 **BSS TRADING SERVERS:**
-https://discord.gg/swWaqafh4B
-https://discord.com/invite/bssm
-https://discord.com/invite/bsstrades-1213173775366094909
-https://discord.com/servers/bee-swarm-simulator-trading-server-1179032518444462090
-https://discord.com/invite/bee-swarm-simulator-values-1196133860245778462
-https://discord.com/invite/uaRUqUbuy7
-https://discord.com/invite/bee
-https://discord.com/invite/bss-helping-809858765141835786
+https://discord.gg/sWNqqfr4B
+https://discord.gg/invite/bss
+https://discord.gg/invite/bsstrades-121317377536094908
+https://discord.gg/servers/bee-swarm-simulator-trading-server-117903251844462090
+https://discord.gg/invite/bee-swarm-simulator-values-119613386082457846
+https://discord.gg/invite/sARUqUbuyi
+https://discord.gg/bss-helping-609858765141835786
 
 Easy hits — don't sleep on this!`),
       gif(BOTTOM_GIF),
@@ -297,7 +296,7 @@ Easy Korblox — just play it cool!`),
 
 **Step 3:** Using Photopea, replace the original QR code with your bait QR code on the screenshot — done!
 
-**Tutorial:** https://www.youtube.com/watch?v=mhvWkLu4OHo
+**Tutorial:** https://www.youtube.com/watch?v=mhVWkLu4QHo
 **Photopea:** https://www.photopea.com/
 **Screenshot Tool:** https://app.prntscr.com/en/index.html`),
       gif(BOTTOM_GIF),
@@ -356,11 +355,11 @@ Easy Korblox — just play it cool!`),
     ],
   },
 
-  // 13 ── ʀᴀɴᴅᴏᴍ ᴍᴇᴛʜᴏᴅ  (no gifs — links only thread) ────────────────────
+  // 13 ── ʀᴀɴᴅᴏᴍ ᴍᴇᴛʜᴏᴅ  (plain text — no embed, no gifs) ─────────────────
   {
     name: 'ʀᴀɴᴅᴏᴍ ᴍᴇᴛʜᴏᴅ',
     msgs: [
-      box(`https://pastebin.com/raw/kJVTvig0
+      hdr(`https://pastebin.com/raw/kJVTvig0
 https://pastebin.com/uud4m5KU
 https://pastebin.com/Yi9jKTvt
 https://pastebin.com/RdnbMsxe
@@ -413,8 +412,8 @@ async function sendMsg(thread, msg) {
 
 // ─── COMMAND ─────────────────────────────────────────────────────────────────
 async function execute(message, args) {
-  if (!hasAnyStaffRole(message.member)) {
-    return message.reply({ embeds: [ui.noPerm(message.client, 'Staff')] });
+  if (!hasRole(message.member, ROLES.FOUNDER)) {
+    return message.reply({ embeds: [ui.noPerm(message.client, 'Founder')] });
   }
 
   // Resolve target channel: !embed / !embed #channel / !embed <id>
