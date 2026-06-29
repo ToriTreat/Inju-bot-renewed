@@ -1,23 +1,12 @@
 'use strict';
 
-const { EmbedBuilder } = require('discord.js');
-const theme = require('../utils/theme');
 const ui    = require('../utils/ui');
 const eb    = require('../utils/embedBuilder');
 const { hasAnyStaffRole } = require('../config/roles');
 
-const pending = new Map();
-
-function setPending(msgId, data) {
-  pending.set(msgId, data);
-  setTimeout(() => pending.delete(msgId), 60_000);
-}
-function getPending(msgId) { return pending.get(msgId) ?? null; }
-function clearPending(msgId) { pending.delete(msgId); }
-
-function buildUnbanResultEmbed(target, moderator, reason) {
-  return eb.banResultEmbed(target, moderator, reason, 'unban');
-}
+// Share the pending Map with ban.js so interactionCreate.js can find entries
+// regardless of whether !ban or !unban triggered the confirmation prompt.
+const { setPending } = require('./ban');
 
 async function execute(message, args) {
   if (!hasAnyStaffRole(message.member)) {
@@ -30,16 +19,20 @@ async function execute(message, args) {
   if (!targetUser) {
     const rawId = (args[0] || '').replace(/[<@!>]/g, '');
     if (!rawId) {
-      return message.reply({ embeds: [ui.error(message.client, 'No Target', 'You must @mention a user or provide a user ID to unban.', '!unban @user [reason] OR !unban <userId> [reason]')] });
+      return message.reply({
+        embeds: [ui.error(message.client, 'No Target', 'You must @mention a user or provide a user ID to unban.', '!unban @user [reason] OR !unban <userId> [reason]')],
+      });
     }
     try {
       targetUser = await message.client.users.fetch(rawId);
     } catch {
-      return message.reply({ embeds: [ui.error(message.client, 'User Not Found', `Could not find a user with ID \`${rawId}\`.`, '!unban @user [reason] OR !unban <userId> [reason]')] });
+      return message.reply({
+        embeds: [ui.error(message.client, 'User Not Found', `Could not find a user with ID \`${rawId}\`.`, '!unban @user [reason] OR !unban <userId> [reason]')],
+      });
     }
   }
 
-  const reasonArgs = message.mentions.users.first() ? args.slice(1) : args.slice(1);
+  const reasonArgs = args.slice(1);
   const reason = reasonArgs.join(' ') || null;
 
   const prompt = ui.confirmPrompt(
@@ -53,6 +46,7 @@ async function execute(message, args) {
 
   const sent = await message.reply(prompt);
 
+  // Store in ban.js's shared pending Map so interactionCreate.js can resolve it
   setPending(sent.id, {
     target: targetUser,
     reason,
@@ -61,4 +55,4 @@ async function execute(message, args) {
   });
 }
 
-module.exports = { name: 'unban', execute, buildUnbanResultEmbed, getPending, clearPending };
+module.exports = { name: 'unban', execute };
