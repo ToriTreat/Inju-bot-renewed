@@ -105,14 +105,14 @@ async function sendTranscript(client, ticket, closerUser, channelName, rawMessag
 
   const headerEmbed = {
     color: 0x5865F2,
-    title: '📋  Ticket Transcript',
+    title: `${icon('BTN_TRANSCRIPT')}  Ticket Transcript`,
     fields: [
-      { name: '🎫  Ticket',    value: ticket?.ticketId  || 'Unknown',             inline: true },
-      { name: '📁  Channel',   value: `#${channelName}`,                           inline: true },
-      { name: '💬  Messages',  value: `${msgs.length}`,                            inline: true },
-      { name: '👤  Opened By', value: ticket?.userId ? `<@${ticket.userId}>` : 'Unknown', inline: true },
-      { name: '🔒  Closed By', value: `<@${closerUser.id}>`,                       inline: true },
-      { name: '🕐  Closed At', value: `<t:${Math.floor(Date.now() / 1000)}:f>`,    inline: true },
+      { name: `${icon('BTN_TICKET_OPEN')}  Ticket`,    value: ticket?.ticketId  || 'Unknown',             inline: true },
+      { name: `${icon('ICON_CHANNELS')}  Channel`,     value: `#${channelName}`,                           inline: true },
+      { name: `${icon('HDR_COMMANDS')}  Messages`,     value: `${msgs.length}`,                            inline: true },
+      { name: `${icon('BTN_VIEW_USER')}  Opened By`,   value: ticket?.userId ? `<@${ticket.userId}>` : 'Unknown', inline: true },
+      { name: `${icon('BTN_CLOSE')}  Closed By`,       value: `<@${closerUser.id}>`,                       inline: true },
+      { name: `${icon('STATUS_INFO')}  Closed At`,     value: `<t:${Math.floor(Date.now() / 1000)}:f>`,    inline: true },
     ],
     footer: { text: 'BADDIES BOT  ·  Ticket System' },
     timestamp: new Date().toISOString(),
@@ -413,7 +413,7 @@ module.exports = {
           await interaction.reply({
             embeds: [{
               color: 0xFFA500,
-              title: '🔒  Claim Ticket',
+              title: `${icon('BTN_CLOSE')}  Claim Ticket`,
               description: 'Should the **ticket owner** be able to **view** this ticket while it is claimed?\n\nFounders only will be able to message and take action.',
             }],
             components: [choiceRow],
@@ -481,16 +481,18 @@ module.exports = {
           await interaction.channel.send({
             embeds: [{
               color: 0xFFA500,
-              title: '🔒  Ticket Claimed & Frozen',
+              title: `${icon('BTN_CLOSE')}  Ticket Claimed & Frozen`,
               description:
                 `This ticket has been **claimed** by <@${interaction.user.id}>.\n\n` +
-                `⚠️ The ticket is now **frozen** — only **Founders** can message or take action.\n` +
-                (includeUser ? '👁️ The ticket owner **can** still view this channel.' : '🚫 The ticket owner **cannot** see this channel.'),
+                `${icon('STATUS_WARNING')} The ticket is now **frozen** — only **Founders** can message or take action.\n` +
+                (includeUser
+                  ? `${icon('BTN_STATUS')} The ticket owner **can** still view this channel.`
+                  : `${icon('STATUS_ERROR')} The ticket owner **cannot** see this channel.`),
               timestamp: new Date().toISOString(),
             }],
           }).catch(() => {});
 
-          await interaction.reply({ content: '✅ Ticket claimed.', ephemeral: true });
+          await interaction.reply({ content: `${icon('STATUS_SUCCESS')} Ticket claimed.`, ephemeral: true });
           return;
         }
 
@@ -540,13 +542,13 @@ module.exports = {
           await interaction.channel.send({
             embeds: [{
               color: 0x57F287,
-              title: '🔓  Ticket Unclaimed',
-              description: `Ticket has been **unclaimed** by <@${interaction.user.id}>. Support staff can now access this ticket again.`,
+              title: `${icon('BTN_REOPEN')}  Ticket Unclaimed`,
+              description: `${icon('STATUS_SUCCESS')} Ticket has been **unclaimed** by <@${interaction.user.id}>. Support staff can now access this ticket again.`,
               timestamp: new Date().toISOString(),
             }],
           }).catch(() => {});
 
-          await interaction.reply({ content: '✅ Ticket unclaimed.', ephemeral: true });
+          await interaction.reply({ content: `${icon('STATUS_SUCCESS')} Ticket unclaimed.`, ephemeral: true });
           return;
         }
 
