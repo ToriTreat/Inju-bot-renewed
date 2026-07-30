@@ -5,7 +5,7 @@ const theme = require('../utils/theme');
 const ui    = require('../utils/ui');
 const eb    = require('../utils/embedBuilder');
 const ce    = require('../utils/customEmojis');
-const { hasAnyStaffRole } = require('../config/roles');
+const { hasAnyAdminRole } = require('../config/roles');
 
 const pending = new Map();
 
@@ -21,8 +21,8 @@ function buildBanResultEmbed(target, moderator, reason, action = 'ban') {
 }
 
 async function execute(message, args) {
-  if (!hasAnyStaffRole(message.member)) {
-    return message.reply({ embeds: [ui.noPerm(message.client, 'Staff')] });
+  if (!hasAnyAdminRole(message.member)) {
+    return message.reply({ embeds: [ui.noPerm(message.client, 'Admin')] });
   }
 
   // Support both @mention and raw user ID
