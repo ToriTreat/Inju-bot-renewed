@@ -1,20 +1,20 @@
 const config = require('./bot');
 
 const ROLES = {
-  FOUNDER:          config.founderRoleId || '1493282797983629494',
-  DEVELOPER:        config.developerRoleId || '1498328916874629252',
-  HEAD_MANAGER:     config.headManagerRoleId || '1506342621696626728',
-  LEAD_ADMIN:       config.leadAdminRoleId || '1493297714157322344',
-  EXECUTIVE_ADMIN:  config.executiveAdminRoleId || '1493282842514428028',
-  HEAD_SUPPORT:     config.headSupportRoleId || '1493282864739909823',
-  SUPPORT:          config.supportRoleId || '1493282887364251769',
-  CONTENT_CREATOR:  config.contentCreatorRoleId || '1509119762439868506',
-  HITTER_1:         config.hitter1RoleId || '1493282909820555284',
-  HITTER_2:         config.hitter2RoleId || '1493282931890978927',
-  HITTER_3:         config.hitter3RoleId || '1498329326586691715',
-  BOT:              config.botRoleId || '1493282775954886886',
+  FOUNDER:          config.founderRoleId || '1532203548572385431',
+  DEVELOPER:        config.developerRoleId || '1532405583125151884',
+  HEAD_MANAGER:     config.headManagerRoleId || '1532405584366669905',
+  LEAD_ADMIN:       config.leadAdminRoleId || '1532405585805312173',
+  EXECUTIVE_ADMIN:  config.executiveAdminRoleId || '1532405588531609680',
+  HEAD_SUPPORT:     config.headSupportRoleId || '1532405589714665613',
+  SUPPORT:          config.supportRoleId || '1532405590775566396',
+  CONTENT_CREATOR:  config.contentCreatorRoleId || '1532405591622946887',
+  HITTER_1:         config.hitter1RoleId || '1532405592809799720',
+  HITTER_2:         config.hitter2RoleId || '1532405593871089834',
+  HITTER_3:         config.hitter3RoleId || '1532405594991104001',
+  BOT:              config.botRoleId || '1532405596836466748',
   BOOSTER:          config.boosterRoleId || '1489594671549120523',
-  MEMBER:           config.memberRoleId || '1493282954129051838',
+  MEMBER:           config.memberRoleId || '1532405598912778370',
 };
 
 const STAFF_ROLES = [
