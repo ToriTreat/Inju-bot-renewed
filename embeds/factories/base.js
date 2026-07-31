@@ -59,11 +59,20 @@ function baseEmbed(options = {}) {
     inline: f.inline,
   })) : fields;
 
+  const safeSetAuthor = (t) => {
+    try {
+      em.setAuthor(buildAuthor(client, t, { iconURL: authorIcon }));
+    } catch (_) {
+      try { em.setAuthor({ name: String(t || 'INFO').slice(0, 256) }); } catch (__) { /* skip author */ }
+    }
+  };
+
   if (enforceBrand) {
-    em.setAuthor(buildAuthor(client, scAuthorTitle || scTitle, { iconURL: authorIcon }));
+    safeSetAuthor(scAuthorTitle || scTitle);
   } else if (scAuthorTitle) {
-    em.setAuthor(buildAuthor(client, scAuthorTitle, { iconURL: authorIcon }));
+    safeSetAuthor(scAuthorTitle);
   }
+
 
   if (scTitle) em.setTitle(scTitle);
 
