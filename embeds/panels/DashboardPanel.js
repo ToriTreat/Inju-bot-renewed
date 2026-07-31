@@ -22,10 +22,10 @@ function DashboardPanel(client, opts = {}) {
     '',
     premiumDivider('Actions'),
     `**\`[01]\`**  ${DIAMOND_I}  [OPEN TICKET]   · Launch a new support thread`,
-    `**\`[02]\`**  ${DIAMOND_I}  [VIEW GUIDE]    · External documentation`,
-    `**\`[03]\`**  ${DIAMOND_I}  [CATEGORY]      · Choose a support category below`,
-    `**\`[04]\`**  ${BTN_STATUS_I}  [STATUS]        · View your open tickets`,
-    `**\`[05]\`**  ${BTN_STATS_I}  [STATS]         · View support throughput`,
+    `**\`[02]\`**  ${DIAMOND_I}  [CATEGORY]      · Choose a support category below`,
+    `**\`[03]\`**  ${BTN_STATUS_I}  [STATUS]        · View your open tickets`,
+    `**\`[04]\`**  ${BTN_STATS_I}  [STATS]         · View support throughput`,
+
     '',
     premiumDivider('Live State'),
     `${HDR_CAT}  **CATEGORY**  \`PICK BELOW\``,
@@ -53,8 +53,8 @@ function DashboardPanel(client, opts = {}) {
 
   const row1 = new (require('discord.js').ActionRowBuilder)().addComponents(
     openTicketBtn('btn:support:open'),
-    dashLink('VIEW GUIDE', opts.guideUrl || BRAND_URL),
   );
+
 
   const row2 = new (require('discord.js').ActionRowBuilder)().addComponents(
     statusBtn(), statsBtn(),
