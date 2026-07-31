@@ -14,5 +14,4 @@ function buildAuthor(client, title, opts = {}) {
   if (url) out.url = url;
   return out;
 }
-
 module.exports = { buildAuthor };
