@@ -61,9 +61,13 @@ async function execute(message) {
       components: [openRow],
     });
   } catch (err) {
-    await message.channel.send({ embeds: [ui.error(client, 'Panel Error', 'Failed to send ticket panel.')] });
+    try { require('../utils/logger').error(`Ticket panel failed: ${err.stack || err.message}`); } catch (_) {}
+    await message.channel.send({
+      embeds: [ui.error(client, 'Panel Error', err.message || 'Failed to send ticket panel.', 'Check bot channel permissions.')],
+    }).catch(() => {});
   }
 }
+
 
 module.exports = {
   name: 'ticket',
