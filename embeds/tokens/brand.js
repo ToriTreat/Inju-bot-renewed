@@ -2,7 +2,7 @@
 
 const BOT_NAME = 'BADDIES';
 const BRAND_DOMAIN = 'ASTRAL V2';
-const BRAND_URL = 'https://injuries.to';
+const BRAND_URL = 'aslsite.vercel.app';
 
 function footerText(moduleName) {
   if (!moduleName) return `${BOT_NAME}  ·  ${BRAND_DOMAIN}`;
