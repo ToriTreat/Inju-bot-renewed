@@ -28,6 +28,7 @@ const envSchema = z.object({
   BOOSTER_ROLE_ID: z.string().optional().default(''),
   VERIFY_CHANNEL_ID: z.string().optional().default(''),
   VOUCH_CHANNEL_ID: z.string().optional().default(''),
+  SUPPORT_CHANNEL_ID: z.string().optional().default('1532405619028529334'),
   GUILD_ID: z.string().optional().default(''),
   PORT: z.string().optional().default('3000'),
 });
@@ -66,6 +67,7 @@ const config = {
   boosterRoleId: parsed.data.BOOSTER_ROLE_ID,
   verifyChannelId: parsed.data.VERIFY_CHANNEL_ID,
   vouchChannelId: parsed.data.VOUCH_CHANNEL_ID,
+  supportChannelId: parsed.data.SUPPORT_CHANNEL_ID,
   guildId: parsed.data.GUILD_ID,
   port: parseInt(parsed.data.PORT, 10) || 3000,
 
