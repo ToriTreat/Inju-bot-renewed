@@ -11,7 +11,7 @@ function buildAuthor(client, title, opts = {}) {
   const url = opts.url || BRAND_URL;
   const out = { name };
   if (isHttpUrl(icon)) out.iconURL = icon;
-  if (url) out.url = url;
+  if (isHttpUrl(url)) out.url = url;
   return out;
 }
 module.exports = { buildAuthor };
