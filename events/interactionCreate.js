@@ -651,14 +651,37 @@ module.exports = {
           }
 
           try {
-            const staffOverwrites = config.supportRoleId ? [
-              { id: config.supportRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ReadMessageHistory] },
-            ] : [];
+            const isSnowflake = (v) => typeof v === 'string' && /^\d{17,20}$/.test(v);
+
+            // Staff roles that should always see tickets
+            const staffRoleIds = [...new Set([
+              ROLES.FOUNDER, ROLES.DEVELOPER, ROLES.HEAD_MANAGER, ROLES.LEAD_ADMIN,
+              ROLES.EXECUTIVE_ADMIN, ROLES.HEAD_SUPPORT, ROLES.SUPPORT,
+            ])].filter(id => isSnowflake(id) && guild.roles.cache.has(id));
+
+            const staffOverwrites = staffRoleIds.map(id => ({
+              id,
+              allow: [
+                PermissionFlagsBits.ViewChannel,
+                PermissionFlagsBits.SendMessages,
+                PermissionFlagsBits.ManageMessages,
+                PermissionFlagsBits.ReadMessageHistory,
+              ],
+            }));
+
+            // Place the ticket under the same category as the support channel
+            let parentId = null;
+            if (isSnowflake(config.supportChannelId)) {
+              const supportCh = guild.channels.cache.get(config.supportChannelId)
+                || await guild.channels.fetch(config.supportChannelId).catch(() => null);
+              parentId = supportCh?.parentId ?? null;
+            }
+            if (!parentId) parentId = interaction.channel?.parentId ?? null;
 
             const channel = await guild.channels.create({
               name: channelName,
               type: ChannelType.GuildText,
-              parent: interaction.channel?.parentId ?? null,
+              parent: parentId,
               topic: `Support ticket for ${user.tag} — ${cat.label}`,
               permissionOverwrites: [
                 { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
@@ -693,11 +716,14 @@ module.exports = {
               components: [],
             });
           } catch (err) {
+            logger.error(`Ticket create failed: ${err.message}`);
+            if (err.stack) logger.error(err.stack);
             await interaction.editReply({
-              embeds: [ui.error(client, 'Ticket Failed', err.message, 'Check bot channel permissions.')],
+              embeds: [ui.error(client, 'Ticket Failed', err.message || 'Unknown error', 'Check bot channel permissions.')],
               components: [],
-            });
+            }).catch(() => {});
           }
+
           return;
         }
 
